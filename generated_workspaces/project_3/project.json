@@ -1,0 +1,10 @@
+{
+  "project_id": 3,
+  "name": "Workspace Template Test",
+  "stack": {
+    "frontend": "nextjs",
+    "backend": "express",
+    "database": "mysql"
+  },
+  "status": "initialized"
+}

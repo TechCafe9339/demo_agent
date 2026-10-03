@@ -1,29 +1,42 @@
-
 import "dotenv/config";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { prisma } from "../config/prisma.js";
 
-const JWT_SECRET = process.env.JWT_SECRET;
+function getJwtSecret(): string {
+  const secret =
+    process.env.JWT_SECRET;
 
-if (!JWT_SECRET) {
-  throw new Error("JWT_SECRET is not configured.");
+  if (!secret) {
+    throw new Error(
+      "JWT_SECRET is not configured."
+    );
+  }
+
+  return secret;
 }
 
 export class AuthService {
-  async validateUser(email: string, password: string) {
-    const user = await prisma.user.findUnique({
-      where: { email },
-    });
+  async validateUser(
+    email: string,
+    password: string
+  ) {
+    const user =
+      await prisma.user.findUnique({
+        where: {
+          email,
+        },
+      });
 
     if (!user) {
       return null;
     }
 
-    const passwordValid = await bcrypt.compare(
-      password,
-      user.passwordHash
-    );
+    const passwordValid =
+      await bcrypt.compare(
+        password,
+        user.passwordHash
+      );
 
     if (!passwordValid) {
       return null;
@@ -35,26 +48,36 @@ export class AuthService {
     };
   }
 
-  async registerUser(email: string, password: string) {
-    const existingUser = await prisma.user.findUnique({
-      where: { email },
-    });
+  async registerUser(
+    email: string,
+    password: string
+  ) {
+    const existingUser =
+      await prisma.user.findUnique({
+        where: {
+          email,
+        },
+      });
 
     if (existingUser) {
-      throw new Error("Email already exists");
+      throw new Error(
+        "Email already exists"
+      );
     }
 
-    const passwordHash = await bcrypt.hash(
-      password,
-      12
-    );
+    const passwordHash =
+      await bcrypt.hash(
+        password,
+        12
+      );
 
-    const user = await prisma.user.create({
-      data: {
-        email,
-        passwordHash,
-      },
-    });
+    const user =
+      await prisma.user.create({
+        data: {
+          email,
+          passwordHash,
+        },
+      });
 
     return {
       id: user.id,
@@ -62,10 +85,19 @@ export class AuthService {
     };
   }
 
-  generateToken(user: { id: number }): string {
+  generateToken(
+    user: {
+      id: number;
+    }
+  ): string {
+    const secret =
+      getJwtSecret();
+
     return jwt.sign(
-      { userId: user.id },
-      JWT_SECRET,
+      {
+        userId: user.id,
+      },
+      secret,
       {
         algorithm: "HS256",
         expiresIn: "1h",

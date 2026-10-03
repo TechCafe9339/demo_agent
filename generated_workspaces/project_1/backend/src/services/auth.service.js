@@ -2,14 +2,19 @@ import "dotenv/config";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { prisma } from "../config/prisma.js";
-const JWT_SECRET = process.env.JWT_SECRET;
-if (!JWT_SECRET) {
-    throw new Error("JWT_SECRET is not configured.");
+function getJwtSecret() {
+    const secret = process.env.JWT_SECRET;
+    if (!secret) {
+        throw new Error("JWT_SECRET is not configured.");
+    }
+    return secret;
 }
 export class AuthService {
     async validateUser(email, password) {
         const user = await prisma.user.findUnique({
-            where: { email },
+            where: {
+                email,
+            },
         });
         if (!user) {
             return null;
@@ -25,7 +30,9 @@ export class AuthService {
     }
     async registerUser(email, password) {
         const existingUser = await prisma.user.findUnique({
-            where: { email },
+            where: {
+                email,
+            },
         });
         if (existingUser) {
             throw new Error("Email already exists");
@@ -43,7 +50,10 @@ export class AuthService {
         };
     }
     generateToken(user) {
-        return jwt.sign({ userId: user.id }, JWT_SECRET, {
+        const secret = getJwtSecret();
+        return jwt.sign({
+            userId: user.id,
+        }, secret, {
             algorithm: "HS256",
             expiresIn: "1h",
         });

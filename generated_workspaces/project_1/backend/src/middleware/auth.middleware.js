@@ -1,28 +1,38 @@
-import { verify } from 'jsonwebtoken';
-import { PrismaClient } from '@prisma/client';
-const prisma = new PrismaClient();
-export const authenticateToken = (req, res, next) => {
-    const authHeader = req.headers.authorization;
-    let token = '';
-    if (authHeader) {
-        const parts = authHeader.split(' ');
-        if (parts.length === 2 && parts[0] === 'Bearer') {
-            token = parts[1];
-        }
+import jwt from "jsonwebtoken";
+export function AuthMiddleware(req, res, next) {
+    const authorization = req.headers.authorization;
+    if (!authorization?.startsWith("Bearer ")) {
+        res.status(401).json({
+            error: "Authentication token required",
+        });
+        return;
     }
-    if (!token) {
-        return res.status(401).json({ error: 'Access denied' });
+    const secret = process.env.JWT_SECRET;
+    if (!secret) {
+        res.status(500).json({
+            error: "Authentication is not configured",
+        });
+        return;
     }
+    const token = authorization.slice(7);
     try {
-        const decoded = verify(token, process.env.JWT_SECRET || 'your_jwt_secret_key');
-        const user = await prisma.user.findUnique({ where: { id: decoded.userId } });
-        if (!user) {
-            throw new Error('User not found');
+        const payload = jwt.verify(token, secret, {
+            algorithms: ["HS256"],
+        });
+        if (typeof payload === "string" ||
+            !Number.isSafeInteger(payload.userId) ||
+            payload.userId <= 0) {
+            res.status(401).json({
+                error: "Invalid authentication token",
+            });
+            return;
         }
-        req.user = user;
+        req.userId = payload.userId;
         next();
     }
-    catch (error) {
-        return res.status(403).json({ error: 'Invalid token' });
+    catch {
+        res.status(401).json({
+            error: "Invalid or expired token",
+        });
     }
-};
+}

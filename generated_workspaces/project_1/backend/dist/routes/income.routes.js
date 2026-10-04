@@ -1,10 +1,12 @@
-import { Router } from 'express';
-import { createIncome, getIncomes, getIncome, updateIncome, deleteIncome } from '@/controllers/income.controller';
+import { Router } from "express";
+import { createIncome, deleteIncome, getIncomeById, getIncomes, updateIncome, } from "../controllers/income.controller.js";
+import { AuthMiddleware, } from "../middleware/auth.middleware.js";
 const router = Router();
-router.post('/incomes', createIncome);
-router.get('/incomes', getIncomes);
-router.get('/incomes/:id', getIncome);
-router.put('/incomes/:id', updateIncome);
-router.delete('/incomes/:id', deleteIncome);
+router.use(AuthMiddleware);
+router.get("/", getIncomes);
+router.get("/:id", getIncomeById);
+router.post("/", createIncome);
+router.put("/:id", updateIncome);
+router.delete("/:id", deleteIncome);
 export default router;
 //# sourceMappingURL=income.routes.js.map

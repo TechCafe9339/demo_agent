@@ -1,15 +1,10 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Any
 
 
 @dataclass
 class LLMResponse:
     content: str
-    model: str
-    prompt_tokens: int | None = None
-    completion_tokens: int | None = None
-    raw_response: dict[str, Any] | None = None
 
 
 class LLMProvider(ABC):
@@ -17,9 +12,10 @@ class LLMProvider(ABC):
     @abstractmethod
     def generate(
         self,
-        messages: list[dict[str, str]],
+        messages: list[dict],
         *,
-        temperature: float = 0.2,
+        temperature: float = 0.1,
         json_mode: bool = False,
+        json_schema: dict | None = None,
     ) -> LLMResponse:
         raise NotImplementedError

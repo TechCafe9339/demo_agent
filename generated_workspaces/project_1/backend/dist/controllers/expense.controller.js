@@ -1,5 +1,16 @@
 import { prisma } from "../config/prisma.js";
-export async function createIncome(req, res) {
+function parseId(value) {
+    const raw = Array.isArray(value)
+        ? value[0]
+        : value;
+    const id = Number(raw);
+    if (!Number.isInteger(id) ||
+        id <= 0) {
+        return null;
+    }
+    return id;
+}
+export async function createExpense(req, res) {
     try {
         const userId = req.userId;
         if (!userId) {
@@ -9,7 +20,7 @@ export async function createIncome(req, res) {
             return;
         }
         const { categoryId, amount, date, description, } = req.body;
-        if (!categoryId ||
+        if (categoryId === undefined ||
             amount === undefined ||
             !date ||
             typeof description !== "string") {
@@ -18,25 +29,52 @@ export async function createIncome(req, res) {
             });
             return;
         }
-        const income = await prisma.income.create({
+        const parsedCategoryId = Number(categoryId);
+        const parsedAmount = Number(amount);
+        const parsedDate = new Date(date);
+        if (!Number.isInteger(parsedCategoryId) ||
+            parsedCategoryId <= 0 ||
+            !Number.isFinite(parsedAmount) ||
+            Number.isNaN(parsedDate.getTime())) {
+            res.status(400).json({
+                error: "Invalid expense data",
+            });
+            return;
+        }
+        const category = await prisma.category.findFirst({
+            where: {
+                id: parsedCategoryId,
+                userId,
+                type: "expense",
+            },
+        });
+        if (!category) {
+            res.status(400).json({
+                error: "Invalid expense category",
+            });
+            return;
+        }
+        const expense = await prisma.expense.create({
             data: {
                 userId,
-                categoryId: Number(categoryId),
-                amount: Number(amount),
-                date: new Date(date),
+                categoryId: parsedCategoryId,
+                amount: parsedAmount,
+                date: parsedDate,
                 description,
             },
         });
-        res.status(201).json(income);
+        res.status(201).json(expense);
     }
     catch (error) {
-        console.error("Create income failed:", error);
+        console.error(error instanceof Error
+            ? error.message
+            : error);
         res.status(500).json({
-            error: "Unable to create income",
+            error: "Failed to create expense",
         });
     }
 }
-export async function getIncomes(req, res) {
+export async function getExpenses(req, res) {
     try {
         const userId = req.userId;
         if (!userId) {
@@ -45,7 +83,7 @@ export async function getIncomes(req, res) {
             });
             return;
         }
-        const incomes = await prisma.income.findMany({
+        const expenses = await prisma.expense.findMany({
             where: {
                 userId,
             },
@@ -56,32 +94,34 @@ export async function getIncomes(req, res) {
                 date: "desc",
             },
         });
-        res.json(incomes);
+        res.json(expenses);
     }
     catch (error) {
-        console.error("Get incomes failed:", error);
+        console.error(error instanceof Error
+            ? error.message
+            : error);
         res.status(500).json({
-            error: "Unable to retrieve incomes",
+            error: "Failed to retrieve expenses",
         });
     }
 }
-export async function getIncomeById(req, res) {
+export async function getExpenseById(req, res) {
     try {
         const userId = req.userId;
-        const id = Number(req.params.id);
         if (!userId) {
             res.status(401).json({
                 error: "Unauthorized",
             });
             return;
         }
-        if (!Number.isInteger(id)) {
+        const id = parseId(req.params.id);
+        if (id === null) {
             res.status(400).json({
-                error: "Invalid income ID",
+                error: "Invalid expense ID",
             });
             return;
         }
-        const income = await prisma.income.findFirst({
+        const expense = await prisma.expense.findFirst({
             where: {
                 id,
                 userId,
@@ -90,32 +130,40 @@ export async function getIncomeById(req, res) {
                 category: true,
             },
         });
-        if (!income) {
+        if (!expense) {
             res.status(404).json({
-                error: "Income not found",
+                error: "Expense not found",
             });
             return;
         }
-        res.json(income);
+        res.json(expense);
     }
     catch (error) {
-        console.error("Get income failed:", error);
+        console.error(error instanceof Error
+            ? error.message
+            : error);
         res.status(500).json({
-            error: "Unable to retrieve income",
+            error: "Failed to retrieve expense",
         });
     }
 }
-export async function updateIncome(req, res) {
+export async function updateExpense(req, res) {
     try {
         const userId = req.userId;
-        const id = Number(req.params.id);
         if (!userId) {
             res.status(401).json({
                 error: "Unauthorized",
             });
             return;
         }
-        const existing = await prisma.income.findFirst({
+        const id = parseId(req.params.id);
+        if (id === null) {
+            res.status(400).json({
+                error: "Invalid expense ID",
+            });
+            return;
+        }
+        const existing = await prisma.expense.findFirst({
             where: {
                 id,
                 userId,
@@ -123,12 +171,12 @@ export async function updateIncome(req, res) {
         });
         if (!existing) {
             res.status(404).json({
-                error: "Income not found",
+                error: "Expense not found",
             });
             return;
         }
         const { categoryId, amount, date, description, } = req.body;
-        const income = await prisma.income.update({
+        const expense = await prisma.expense.update({
             where: {
                 id,
             },
@@ -147,26 +195,34 @@ export async function updateIncome(req, res) {
                 }),
             },
         });
-        res.json(income);
+        res.json(expense);
     }
     catch (error) {
-        console.error("Update income failed:", error);
+        console.error(error instanceof Error
+            ? error.message
+            : error);
         res.status(500).json({
-            error: "Unable to update income",
+            error: "Failed to update expense",
         });
     }
 }
-export async function deleteIncome(req, res) {
+export async function deleteExpense(req, res) {
     try {
         const userId = req.userId;
-        const id = Number(req.params.id);
         if (!userId) {
             res.status(401).json({
                 error: "Unauthorized",
             });
             return;
         }
-        const existing = await prisma.income.findFirst({
+        const id = parseId(req.params.id);
+        if (id === null) {
+            res.status(400).json({
+                error: "Invalid expense ID",
+            });
+            return;
+        }
+        const existing = await prisma.expense.findFirst({
             where: {
                 id,
                 userId,
@@ -174,11 +230,11 @@ export async function deleteIncome(req, res) {
         });
         if (!existing) {
             res.status(404).json({
-                error: "Income not found",
+                error: "Expense not found",
             });
             return;
         }
-        await prisma.income.delete({
+        await prisma.expense.delete({
             where: {
                 id,
             },
@@ -186,10 +242,12 @@ export async function deleteIncome(req, res) {
         res.status(204).send();
     }
     catch (error) {
-        console.error("Delete income failed:", error);
+        console.error(error instanceof Error
+            ? error.message
+            : error);
         res.status(500).json({
-            error: "Unable to delete income",
+            error: "Failed to delete expense",
         });
     }
 }
-//# sourceMappingURL=income.controller.js.map
+//# sourceMappingURL=expense.controller.js.map

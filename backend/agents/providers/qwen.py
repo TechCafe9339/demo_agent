@@ -1,4 +1,4 @@
-import requests
+import requests, os
 
 from django.conf import settings
 
@@ -20,7 +20,12 @@ class QwenProvider(LLMProvider):
 
         self.model = settings.QWEN_MODEL
 
-        self.timeout = settings.QWEN_TIMEOUT
+        self.timeout = int(
+            os.getenv(
+                "QWEN_TIMEOUT",
+                "600",
+            )
+        )
 
     def generate(
         self,
@@ -51,19 +56,16 @@ class QwenProvider(LLMProvider):
         response = requests.post(
             url,
             json=payload,
-            timeout=self.timeout,
+            timeout=(
+                10,
+                self.timeout,
+            ),
         )
 
         response.raise_for_status()
 
         data = response.json()
 
-        content = (
-            data
-            .get("message", {})
-            .get("content", "")
-        )
+        content = data.get("message", {}).get("content", "")
 
-        return LLMResponse(
-            content=content
-        )
+        return LLMResponse(content=content)

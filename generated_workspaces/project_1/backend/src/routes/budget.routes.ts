@@ -1,12 +1,12 @@
 import { Router } from "express";
 
 import {
-  createCategory,
-  deleteCategory,
-  getCategories,
-  getCategory,
-  updateCategory,
-} from "../controllers/category.controller.js";
+  createBudget,
+  deleteBudget,
+  getBudgetById,
+  getBudgets,
+  updateBudget,
+} from "../controllers/budget.controller.js";
 
 import {
   AuthMiddleware,
@@ -21,27 +21,27 @@ router.use(
 
 router.post(
   "/",
-  createCategory
+  createBudget
 );
 
 router.get(
   "/",
-  getCategories
+  getBudgets
 );
 
 router.get(
   "/:id",
-  getCategory
+  getBudgetById
 );
 
 router.put(
   "/:id",
-  updateCategory
+  updateBudget
 );
 
 router.delete(
   "/:id",
-  deleteCategory
+  deleteBudget
 );
 
 export default router;

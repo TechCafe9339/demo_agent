@@ -27,7 +27,7 @@ function parseId(
 }
 
 
-export async function createCategory(
+export async function createBudget(
   req: AuthenticatedRequest,
   res: Response
 ): Promise<void> {
@@ -42,116 +42,29 @@ export async function createCategory(
     }
 
     const {
-      name,
-      type,
+      categoryId,
+      budgetAmount,
+      month,
     } = req.body;
 
+    const parsedCategoryId =
+      Number(categoryId);
+
+    const parsedBudgetAmount =
+      Number(budgetAmount);
+
+    const parsedMonth =
+      new Date(month);
+
     if (
-      typeof name !== "string" ||
-      !name.trim() ||
-      (
-        type !== "income" &&
-        type !== "expense"
-      )
+      !Number.isInteger(parsedCategoryId) ||
+      parsedCategoryId <= 0 ||
+      !Number.isFinite(parsedBudgetAmount) ||
+      parsedBudgetAmount < 0 ||
+      Number.isNaN(parsedMonth.getTime())
     ) {
       res.status(400).json({
-        error:
-          "Valid name and type are required",
-      });
-      return;
-    }
-
-    const category =
-      await prisma.category.create({
-        data: {
-          name: name.trim(),
-          type,
-          userId,
-        },
-      });
-
-    res.status(201).json(
-      category
-    );
-
-  } catch (error) {
-    console.error(
-      error instanceof Error
-        ? error.message
-        : error
-    );
-
-    res.status(500).json({
-      error:
-        "Failed to create category",
-    });
-  }
-}
-
-
-export async function getCategories(
-  req: AuthenticatedRequest,
-  res: Response
-): Promise<void> {
-  try {
-    const userId = req.userId;
-
-    if (!userId) {
-      res.status(401).json({
-        error: "Unauthorized",
-      });
-      return;
-    }
-
-    const categories =
-      await prisma.category.findMany({
-        where: {
-          userId,
-        },
-
-        orderBy: {
-          name: "asc",
-        },
-      });
-
-    res.json(categories);
-
-  } catch (error) {
-    console.error(
-      error instanceof Error
-        ? error.message
-        : error
-    );
-
-    res.status(500).json({
-      error:
-        "Failed to retrieve categories",
-    });
-  }
-}
-
-
-export async function getCategory(
-  req: AuthenticatedRequest,
-  res: Response
-): Promise<void> {
-  try {
-    const userId = req.userId;
-
-    if (!userId) {
-      res.status(401).json({
-        error: "Unauthorized",
-      });
-      return;
-    }
-
-    const id = parseId(
-      req.params.id
-    );
-
-    if (id === null) {
-      res.status(400).json({
-        error: "Invalid category ID",
+        error: "Invalid budget data",
       });
       return;
     }
@@ -159,20 +72,34 @@ export async function getCategory(
     const category =
       await prisma.category.findFirst({
         where: {
-          id,
+          id: parsedCategoryId,
           userId,
         },
       });
 
     if (!category) {
-      res.status(404).json({
-        error:
-          "Category not found",
+      res.status(400).json({
+        error: "Invalid category",
       });
       return;
     }
 
-    res.json(category);
+    const budget =
+      await prisma.budget.create({
+        data: {
+          userId,
+          categoryId:
+            parsedCategoryId,
+          budgetAmount:
+            parsedBudgetAmount,
+          month:
+            parsedMonth,
+        },
+      });
+
+    res.status(201).json(
+      budget
+    );
 
   } catch (error) {
     console.error(
@@ -183,13 +110,59 @@ export async function getCategory(
 
     res.status(500).json({
       error:
-        "Failed to retrieve category",
+        "Failed to create budget",
     });
   }
 }
 
 
-export async function updateCategory(
+export async function getBudgets(
+  req: AuthenticatedRequest,
+  res: Response
+): Promise<void> {
+  try {
+    const userId = req.userId;
+
+    if (!userId) {
+      res.status(401).json({
+        error: "Unauthorized",
+      });
+      return;
+    }
+
+    const budgets =
+      await prisma.budget.findMany({
+        where: {
+          userId,
+        },
+
+        include: {
+          category: true,
+        },
+
+        orderBy: {
+          month: "desc",
+        },
+      });
+
+    res.json(budgets);
+
+  } catch (error) {
+    console.error(
+      error instanceof Error
+        ? error.message
+        : error
+    );
+
+    res.status(500).json({
+      error:
+        "Failed to retrieve budgets",
+    });
+  }
+}
+
+
+export async function getBudgetById(
   req: AuthenticatedRequest,
   res: Response
 ): Promise<void> {
@@ -209,13 +182,74 @@ export async function updateCategory(
 
     if (id === null) {
       res.status(400).json({
-        error: "Invalid category ID",
+        error: "Invalid budget ID",
+      });
+      return;
+    }
+
+    const budget =
+      await prisma.budget.findFirst({
+        where: {
+          id,
+          userId,
+        },
+
+        include: {
+          category: true,
+        },
+      });
+
+    if (!budget) {
+      res.status(404).json({
+        error: "Budget not found",
+      });
+      return;
+    }
+
+    res.json(budget);
+
+  } catch (error) {
+    console.error(
+      error instanceof Error
+        ? error.message
+        : error
+    );
+
+    res.status(500).json({
+      error:
+        "Failed to retrieve budget",
+    });
+  }
+}
+
+
+export async function updateBudget(
+  req: AuthenticatedRequest,
+  res: Response
+): Promise<void> {
+  try {
+    const userId = req.userId;
+
+    if (!userId) {
+      res.status(401).json({
+        error: "Unauthorized",
+      });
+      return;
+    }
+
+    const id = parseId(
+      req.params.id
+    );
+
+    if (id === null) {
+      res.status(400).json({
+        error: "Invalid budget ID",
       });
       return;
     }
 
     const existing =
-      await prisma.category.findFirst({
+      await prisma.budget.findFirst({
         where: {
           id,
           userId,
@@ -224,38 +258,42 @@ export async function updateCategory(
 
     if (!existing) {
       res.status(404).json({
-        error:
-          "Category not found",
+        error: "Budget not found",
       });
       return;
     }
 
     const {
-      name,
-      type,
+      categoryId,
+      budgetAmount,
+      month,
     } = req.body;
 
-    const category =
-      await prisma.category.update({
+    const budget =
+      await prisma.budget.update({
         where: {
           id,
         },
 
         data: {
-          ...(typeof name === "string" && {
-            name: name.trim(),
+          ...(categoryId !== undefined && {
+            categoryId:
+              Number(categoryId),
           }),
 
-          ...(
-            type === "income" ||
-            type === "expense"
-          ) && {
-            type,
-          },
+          ...(budgetAmount !== undefined && {
+            budgetAmount:
+              Number(budgetAmount),
+          }),
+
+          ...(month !== undefined && {
+            month:
+              new Date(month),
+          }),
         },
       });
 
-    res.json(category);
+    res.json(budget);
 
   } catch (error) {
     console.error(
@@ -266,13 +304,13 @@ export async function updateCategory(
 
     res.status(500).json({
       error:
-        "Failed to update category",
+        "Failed to update budget",
     });
   }
 }
 
 
-export async function deleteCategory(
+export async function deleteBudget(
   req: AuthenticatedRequest,
   res: Response
 ): Promise<void> {
@@ -292,13 +330,13 @@ export async function deleteCategory(
 
     if (id === null) {
       res.status(400).json({
-        error: "Invalid category ID",
+        error: "Invalid budget ID",
       });
       return;
     }
 
     const existing =
-      await prisma.category.findFirst({
+      await prisma.budget.findFirst({
         where: {
           id,
           userId,
@@ -307,13 +345,12 @@ export async function deleteCategory(
 
     if (!existing) {
       res.status(404).json({
-        error:
-          "Category not found",
+        error: "Budget not found",
       });
       return;
     }
 
-    await prisma.category.delete({
+    await prisma.budget.delete({
       where: {
         id,
       },
@@ -330,7 +367,7 @@ export async function deleteCategory(
 
     res.status(500).json({
       error:
-        "Failed to delete category",
+        "Failed to delete budget",
     });
   }
 }

@@ -1,4 +1,5 @@
 import json
+import re
 
 from agents.prompts.code_generator import (
     CODE_GENERATOR_SYSTEM_PROMPT,
@@ -198,6 +199,30 @@ class CodeGeneratorService:
                 "'",
                 '"',
             )
+
+            relative_imports = re.findall(
+                r'from\s+["\'](\.{1,2}/[^"\']+)["\']',
+                content,
+            )
+
+            for import_path in relative_imports:
+
+                if import_path.endswith(".ts"):
+                    violations.append(
+                        f"{path}: relative NodeNext import "
+                        f"{import_path!r} must not end in .ts. "
+                        "Use the emitted .js extension."
+                    )
+
+                elif not (
+                    import_path.endswith(".js")
+                    or import_path.endswith(".json")
+                ):
+                    violations.append(
+                        f"{path}: relative NodeNext import "
+                        f"{import_path!r} must include "
+                        "the .js extension."
+                    )
 
             if '"@prisma/client"' in normalized and "PrismaClient" in normalized:
                 violations.append(

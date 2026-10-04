@@ -214,11 +214,15 @@ class TaskExecutorService:
         errors: list[str],
     ) -> dict:
 
-        specification_data = self._get_specification_data(project)
+        specification_data = (
+            self._get_specification_data(
+                project
+            )
+        )
 
         current_errors = errors
 
-        changed_files = []
+        changed_files: list[str] = []
 
         last_validation = None
 
@@ -226,48 +230,169 @@ class TaskExecutorService:
             1,
             self.MAX_REPAIR_ATTEMPTS + 1,
         ):
+            # -----------------------------------------
+            # 1. Current workspace tree
+            # -----------------------------------------
+
             file_tree = workspace.list_files()
 
-            relevant_files = self._load_relevant_files(
-                workspace=workspace,
-                task=task,
+            # -----------------------------------------
+            # 2. Build small repair context
+            # -----------------------------------------
+
+            repair_paths = set(
+                task.files
             )
 
-            repair_result = self.repair_agent.repair(
-                application_specification=(specification_data),
-                task=(self._get_task_data(task)),
-                errors=current_errors,
-                file_tree=file_tree,
-                relevant_files=(relevant_files),
+            repair_paths.update({
+                "backend/src/config/prisma.ts",
+                "backend/src/middleware/auth.middleware.ts",
+                "backend/src/server.ts",
+                "backend/package.json",
+                "backend/tsconfig.json",
+                "backend/prisma/schema.prisma",
+            })
+
+            repair_files: dict[str, str] = {}
+
+            for path in repair_paths:
+                try:
+                    repair_files[path] = (
+                        workspace.read_file(
+                            path
+                        )
+                    )
+
+                except (
+                    FileNotFoundError,
+                    UnicodeDecodeError,
+                    IsADirectoryError,
+                ):
+                    continue
+
+                except Exception:
+                    continue
+
+            # -----------------------------------------
+            # 3. Build reduced file tree
+            # -----------------------------------------
+
+            repair_file_tree = [
+                path
+                for path in file_tree
+                if (
+                    path in repair_paths
+
+                    or path.startswith(
+                        "backend/src/controllers/"
+                    )
+
+                    or path.startswith(
+                        "backend/src/routes/"
+                    )
+
+                    or path.startswith(
+                        "backend/src/middleware/"
+                    )
+
+                    or path.startswith(
+                        "backend/src/config/"
+                    )
+                )
+            ]
+
+            # Never send generated Prisma client files
+            # to the repair LLM.
+            repair_file_tree = [
+                path
+                for path in repair_file_tree
+                if not path.startswith(
+                    "backend/src/generated/prisma/"
+                )
+            ]
+
+            # -----------------------------------------
+            # 4. Ask repair agent
+            # -----------------------------------------
+
+            repair_result = (
+                self.repair_agent.repair(
+                    application_specification=(
+                        specification_data
+                    ),
+
+                    task=(
+                        self._get_task_data(
+                            task
+                        )
+                    ),
+
+                    errors=current_errors,
+
+                    file_tree=(
+                        repair_file_tree
+                    ),
+
+                    relevant_files=(
+                        repair_files
+                    ),
+                )
             )
 
-            repair_changed_files = FileOperationService.apply(
-                workspace=workspace,
-                result=repair_result,
+            # -----------------------------------------
+            # 5. Apply repair
+            # -----------------------------------------
+
+            repair_changed_files = (
+                FileOperationService.apply(
+                    workspace=workspace,
+                    result=repair_result,
+                )
             )
 
-            changed_files.extend(repair_changed_files)
+            changed_files.extend(
+                repair_changed_files
+            )
 
-            last_validation = self.validator.validate(
-                workspace=workspace,
-                task=task,
+            # -----------------------------------------
+            # 6. Validate repaired task
+            # -----------------------------------------
+
+            last_validation = (
+                self.validator.validate(
+                    workspace=workspace,
+                    task=task,
+                )
             )
 
             if last_validation.success:
                 return {
-                    "validation": last_validation,
-                    "changed_files": changed_files,
-                    "attempts": attempt,
+                    "validation":
+                        last_validation,
+
+                    "changed_files":
+                        changed_files,
+
+                    "attempts":
+                        attempt,
                 }
 
-            current_errors = last_validation.errors
+            # Feed the newest compiler errors
+            # into the next repair attempt.
+            current_errors = (
+                last_validation.errors
+            )
 
         return {
-            "validation": last_validation,
-            "changed_files": changed_files,
-            "attempts": self.MAX_REPAIR_ATTEMPTS,
-        }
+            "validation":
+                last_validation,
 
+            "changed_files":
+                changed_files,
+
+            "attempts":
+                self.MAX_REPAIR_ATTEMPTS,
+        }
     # =================================================
     # Dependencies
     # =================================================

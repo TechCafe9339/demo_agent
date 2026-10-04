@@ -217,4 +217,25 @@ export async function createEntity(...) {{}}
 export async function getEntities(...) {{}}
 
 Avoid instance-method controller classes unless the existing project already uses that pattern.
+
+EXPRESS CONTROLLER CONTRACT:
+
+Files under backend/src/controllers must export actual Express handlers.
+
+Handlers must accept:
+- req
+- res
+
+For authenticated resources:
+- use AuthenticatedRequest
+- use Response from express
+- derive userId from req.userId
+
+Do not generate service-style functions such as:
+createEntity(data)
+getEntity(id)
+
+if those functions are wired directly to Express routes.
+
+Route handlers must match Express handler signatures.
 """

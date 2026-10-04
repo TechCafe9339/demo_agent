@@ -6,6 +6,8 @@ import express from "express";
 import authRoutes from "./routes/auth.routes.js";
 import incomeRoutes from "./routes/income.routes.js";
 import expenseRoutes from "./routes/expense.routes.js";
+import categoryRoutes from "./routes/category.routes.js";
+import budgetRoutes from "./routes/budget.routes.js";
 
 const app = express();
 
@@ -33,6 +35,14 @@ app.use(
 app.use(
   "/api/expenses",
   expenseRoutes
+);
+app.use(
+  "/api/categories",
+  categoryRoutes
+);
+app.use(
+  "/api/budgets",
+  budgetRoutes
 );
 
 app.listen(PORT, () => {

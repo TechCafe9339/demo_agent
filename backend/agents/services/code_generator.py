@@ -137,7 +137,12 @@ class CodeGeneratorService:
                 f"{response.content[:4000]}"
             ) from exc
 
-        self._validate_generated_architecture(result)
+        self._validate_generated_architecture(
+            result,
+            allowed_paths=set(
+                payload["task"]["files"]
+            ),
+        )
 
         return result
 
@@ -180,11 +185,28 @@ class CodeGeneratorService:
     def _validate_generated_architecture(
         self,
         result: CodeGenerationResult,
+        *,
+        allowed_paths: set[str],
     ) -> None:
 
         violations: list[str] = []
 
         for operation in result.operations:
+
+            path = operation.path
+
+            # -----------------------------------------
+            # Strict task file scope
+            # -----------------------------------------
+
+            if path not in allowed_paths:
+                violations.append(
+                    f"{path}: file is outside the "
+                    "current task scope. "
+                    f"Allowed files: "
+                    f"{sorted(allowed_paths)}"
+                )
+                continue
 
             if operation.operation != "write_file":
                 continue
@@ -192,65 +214,170 @@ class CodeGeneratorService:
             path = operation.path
             content = operation.content or ""
 
-            if not path.startswith("backend/src/"):
-                continue
-
             normalized = content.replace(
                 "'",
                 '"',
             )
 
-            relative_imports = re.findall(
-                r'from\s+["\'](\.{1,2}/[^"\']+)["\']',
-                content,
-            )
+            # =================================================
+            # Backend validation
+            # =================================================
 
-            for import_path in relative_imports:
+            if path.startswith("backend/src/"):
 
-                if import_path.endswith(".ts"):
-                    violations.append(
-                        f"{path}: relative NodeNext import "
-                        f"{import_path!r} must not end in .ts. "
-                        "Use the emitted .js extension."
-                    )
+                relative_imports = re.findall(
+                    r'from\s+["\'](\.{1,2}/[^"\']+)["\']',
+                    content,
+                )
 
-                elif not (
-                    import_path.endswith(".js")
-                    or import_path.endswith(".json")
+                for import_path in relative_imports:
+
+                    if import_path.endswith(".ts"):
+                        violations.append(
+                            f"{path}: relative NodeNext import "
+                            f"{import_path!r} must not end in .ts. "
+                            "Use the emitted .js extension."
+                        )
+
+                    elif not (
+                        import_path.endswith(".js")
+                        or import_path.endswith(".json")
+                    ):
+                        violations.append(
+                            f"{path}: relative NodeNext import "
+                            f"{import_path!r} must include "
+                            "the .js extension."
+                        )
+
+                if (
+                    '"@prisma/client"' in normalized
+                    and "PrismaClient" in normalized
                 ):
                     violations.append(
-                        f"{path}: relative NodeNext import "
-                        f"{import_path!r} must include "
-                        "the .js extension."
+                        f"{path}: importing PrismaClient "
+                        "from @prisma/client is forbidden. "
+                        "Reuse the shared prisma instance."
                     )
 
-            if '"@prisma/client"' in normalized and "PrismaClient" in normalized:
+                if "new PrismaClient(" in content:
+                    violations.append(
+                        f"{path}: new PrismaClient() "
+                        "is forbidden."
+                    )
+
+                if 'from "@/' in normalized:
+                    violations.append(
+                        f"{path}: @/ path aliases "
+                        "are forbidden."
+                    )
+
+                if (
+                    "generated/prisma/models/"
+                    in content
+                ):
+                    violations.append(
+                        f"{path}: importing individual "
+                        "generated Prisma model files "
+                        "is forbidden."
+                    )
+
+                if (
+                    "backend/src/generated/prisma"
+                    in content
+                ):
+                    violations.append(
+                        f"{path}: do not import Prisma "
+                        "using project-root absolute-style "
+                        "paths."
+                    )
+
+            # =================================================
+            # Frontend validation
+            # =================================================
+
+            if path.startswith("frontend/"):
+
+                # App Router only
+                if path.startswith(
+                    "frontend/pages/"
+                ):
+                    violations.append(
+                        f"{path}: Pages Router is forbidden. "
+                        "Use frontend/app/ with App Router."
+                    )
+
+                if "/pages/" in path:
+                    violations.append(
+                        f"{path}: Pages Router paths "
+                        "are forbidden."
+                    )
+
+                # Do not invent aliases
+                if 'from "@/' in normalized:
+                    violations.append(
+                        f"{path}: @/ aliases are forbidden "
+                        "unless they are already configured "
+                        "and used by the existing project."
+                    )
+
+                # Prevent frontend task from creating backend files
+                if (
+                    path.startswith("frontend/")
+                    and "backend/src/" in content
+                ):
+                    violations.append(
+                        f"{path}: frontend source should not "
+                        "import backend source files directly."
+                    )
+
+                # Pages must use App Router structure
+                if (
+                    path.endswith("page.tsx")
+                    and not path.startswith(
+                        "frontend/app/"
+                    )
+                ):
+                    violations.append(
+                        f"{path}: Next.js pages must live "
+                        "under frontend/app/."
+                    )
+
+            # =================================================
+            # General project rules
+            # =================================================
+
+            if path.startswith(
+                "frontend/node_modules/"
+            ):
                 violations.append(
-                    f"{path}: importing "
-                    "PrismaClient from "
-                    "@prisma/client is forbidden. "
-                    "Reuse the shared prisma instance."
+                    f"{path}: generated code must not "
+                    "modify node_modules."
                 )
 
-            if "new PrismaClient(" in content:
-                violations.append(f"{path}: " "new PrismaClient() " "is forbidden.")
-
-            if 'from "@/' in normalized:
-                violations.append(f"{path}: " "@/ path aliases " "are forbidden.")
-
-            if "generated/prisma/models/" in content:
+            if path.startswith(
+                "backend/node_modules/"
+            ):
                 violations.append(
-                    f"{path}: importing "
-                    "individual generated Prisma "
-                    "model files is forbidden."
+                    f"{path}: generated code must not "
+                    "modify node_modules."
                 )
 
-            if "backend/src/generated/prisma" in content:
+            if "/.next/" in path:
                 violations.append(
-                    f"{path}: do not import "
-                    "Prisma using project-root "
-                    "absolute-style paths."
+                    f"{path}: generated code must not "
+                    "modify .next."
+                )
+
+            if "/dist/" in path:
+                violations.append(
+                    f"{path}: generated code must not "
+                    "write compiled dist files."
                 )
 
         if violations:
-            raise ValueError("ARCHITECTURE_VIOLATION:\n" + "\n".join(violations))
+            raise ValueError(
+                "ARCHITECTURE_VIOLATION:\n"
+                + "\n".join(
+                    violations
+                )
+            )

@@ -1,5 +1,6 @@
 from agents.prompts.code_generator import (
     BACKEND_ARCHITECTURE_RULES,
+    FRONTEND_ARCHITECTURE_RULES,
 )
 
 
@@ -14,6 +15,8 @@ Return ONLY valid JSON.
 ...
 
 {BACKEND_ARCHITECTURE_RULES}
+
+{FRONTEND_ARCHITECTURE_RULES}
 
 REPAIR PRIORITY:
 
@@ -110,4 +113,16 @@ getEntity(id)
 if those functions are wired directly to Express routes.
 
 Route handlers must match Express handler signatures.
+
+FRONTEND REPAIR RULES:
+
+- Use Next.js App Router only.
+- Pages belong under frontend/app/.
+- Do not create frontend/pages/.
+- Do not invent @/ aliases.
+- Do not invent components, hooks, utilities, or libraries.
+- Only import files that already exist or are created by this repair.
+- Do not modify backend source during frontend repair.
+- Do not modify node_modules, .next, or dist.
+- Use "use client" only when required.
 """

@@ -97,6 +97,26 @@ class TaskExecutorService:
             )
 
             # -----------------------------------------
+            # Enforce task file scope
+            # -----------------------------------------
+
+            allowed_paths = set(task.files)
+
+            unexpected_paths = [
+                operation.path
+                for operation in generation_result.operations
+                if operation.path not in allowed_paths
+            ]
+
+            if unexpected_paths:
+                raise ValueError(
+                    "Generator attempted to modify files "
+                    "outside the current task scope: "
+                    f"{unexpected_paths}. "
+                    f"Allowed files: {sorted(allowed_paths)}"
+                )
+
+            # -----------------------------------------
             # 3. Apply generated file operations
             # -----------------------------------------
 
@@ -104,6 +124,27 @@ class TaskExecutorService:
                 workspace=workspace,
                 result=generation_result,
             )
+
+            # -----------------------------------------
+            # Verify expected task files exist
+            # -----------------------------------------
+
+            existing_files = set(
+                workspace.list_files()
+            )
+
+            missing_files = [
+                path
+                for path in task.files
+                if path not in existing_files
+            ]
+
+            if missing_files:
+                raise ValueError(
+                    "Generator did not create the required "
+                    "task files: "
+                    f"{missing_files}"
+                )
 
             # -----------------------------------------
             # 4. Validate generated code

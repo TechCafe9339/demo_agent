@@ -266,6 +266,95 @@ class RepairAgentService:
                 '"',
             )
 
+            if path.startswith("frontend/"):
+
+                client_hooks = [
+                    "useState",
+                    "useEffect",
+                    "useReducer",
+                    "useRef",
+                    "useContext",
+                    "useLayoutEffect",
+                ]
+
+                uses_client_hook = any(
+                    hook in content
+                    for hook in client_hooks
+                )
+
+                stripped_content = content.lstrip()
+
+                has_use_client = (
+                    stripped_content.startswith(
+                        '"use client";'
+                    )
+                    or stripped_content.startswith(
+                        "'use client';"
+                    )
+                )
+
+                if (
+                    uses_client_hook
+                    and not has_use_client
+                ):
+                    violations.append(
+                        f"{path}: React client hooks are used "
+                        'but the file is missing "use client"; '
+                        "at the top."
+                    )
+
+                if path.startswith("frontend/pages/"):
+                    violations.append(
+                        f"{path}: Pages Router is forbidden. "
+                        "Use frontend/app/ with App Router."
+                    )
+
+                if "/pages/" in path:
+                    violations.append(
+                        f"{path}: Pages Router paths are forbidden."
+                    )
+
+                if 'from "@/' in normalized:
+                    violations.append(
+                        f"{path}: @/ aliases are forbidden "
+                        "unless explicitly configured."
+                    )
+
+                if (
+                    path.endswith("page.tsx")
+                    and not path.startswith("frontend/app/")
+                ):
+                    violations.append(
+                        f"{path}: Next.js pages must live "
+                        "under frontend/app/."
+                    )
+
+                if "backend/src/" in content:
+                    violations.append(
+                        f"{path}: frontend source must not "
+                        "import backend source files directly."
+                    )
+
+            if path.startswith("frontend/node_modules/"):
+                violations.append(
+                    f"{path}: repair must not modify node_modules."
+                )
+
+            if path.startswith("backend/node_modules/"):
+                violations.append(
+                    f"{path}: repair must not modify node_modules."
+                )
+
+            if "/.next/" in path:
+                violations.append(
+                    f"{path}: repair must not modify .next."
+                )
+
+            if "/dist/" in path:
+                violations.append(
+                    f"{path}: repair must not modify compiled dist files."
+                )
+
             if '"@prisma/client"' in normalized and "PrismaClient" in normalized:
                 violations.append(
                     f"{path}: importing "

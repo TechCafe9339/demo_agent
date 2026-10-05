@@ -83,6 +83,66 @@ PROJECT PRESERVATION:
 """
 
 
+FRONTEND_ARCHITECTURE_RULES = """
+STRICT FRONTEND ARCHITECTURE RULES:
+
+This project uses:
+- Next.js
+- TypeScript
+- App Router
+
+FORBIDDEN:
+- pages/ directory
+- Pages Router APIs
+- importing from files that do not exist
+- inventing path aliases
+- inventing npm packages not present in package.json
+- adding state-management libraries unless already installed
+- adding UI libraries unless already installed
+- modifying next.config.ts or tsconfig.json just to support hallucinated imports
+
+APP ROUTER RULES:
+- Pages must live under frontend/app/
+- Route pages must use page.tsx
+- Shared layouts use layout.tsx
+- Use "use client" only when client-side state, effects, browser APIs, or event handlers are required
+- Do not add "use client" unnecessarily
+
+IMPORT RULES:
+- Reuse existing project files and conventions
+- Only import internal files visible in project_file_tree
+- Do not use "@/..." aliases unless they already exist and are actually configured
+- Do not invent components, hooks, utilities, or API clients
+
+API RULES:
+- Reuse an existing API client if present
+- Do not hardcode random backend URLs across components
+- Keep backend access centralized when possible
+
+TASK SCOPE:
+- Only modify files required for the current task
+- Do not modify working backend files during frontend tasks
+
+CLIENT COMPONENT RULES:
+
+- Next.js App Router components are Server Components by default.
+- If a file uses React client hooks such as:
+  useState
+  useEffect
+  useReducer
+  useRef
+  useContext
+  useLayoutEffect
+  or browser-only APIs/event handlers,
+  it MUST begin with:
+
+  "use client";
+
+- The "use client" directive must appear before all imports.
+- Do not add "use client" when the component does not require client-side behavior.
+"""
+
+
 CODE_GENERATOR_SYSTEM_PROMPT = f"""
 You are the code-generation engine for an AI full-stack
 application builder.
@@ -174,6 +234,8 @@ Only import:
 If an import path is uncertain, prefer existing project conventions.
 
 {BACKEND_ARCHITECTURE_RULES}
+
+{FRONTEND_ARCHITECTURE_RULES}
 
 CONTROLLER RULES:
 

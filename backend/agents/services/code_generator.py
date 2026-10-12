@@ -110,6 +110,9 @@ class CodeGeneratorService:
                         "- Relative NodeNext imports must "
                         "include .js.\n"
                         "- Return ONLY valid JSON."
+                        "- You MUST create every file listed in task['files'].\n"
+                        "- Do not return an empty operations array when task files are required.\n"
+                        "- Each required task file must have a write_file operation.\n"
                     ),
                 }
             )
@@ -141,6 +144,9 @@ class CodeGeneratorService:
             result,
             allowed_paths=set(
                 payload["task"]["files"]
+            ),
+            existing_paths=set(
+                payload["project_file_tree"]
             ),
         )
 
@@ -187,6 +193,7 @@ class CodeGeneratorService:
         result: CodeGenerationResult,
         *,
         allowed_paths: set[str],
+        existing_paths: set[str],
     ) -> None:
 
         violations: list[str] = []
@@ -374,10 +381,44 @@ class CodeGeneratorService:
                     "write compiled dist files."
                 )
 
+        generated_paths = {
+            operation.path
+            for operation in result.operations
+            if operation.operation == "write_file"
+        }
+
+        required_new_files = (
+            allowed_paths - existing_paths
+        )
+
+
+        missing_required_files = (
+            allowed_paths - generated_paths
+        )
+
+        write_operations = [
+            operation
+            for operation in result.operations
+            if operation.operation == "write_file"
+        ]
+
+        if missing_required_files:
+            violations.append(
+                "Generator did not create required new "
+                "task files. "
+                f"Missing: {sorted(missing_required_files)}"
+            )
+
         if violations:
             raise ValueError(
                 "ARCHITECTURE_VIOLATION:\n"
                 + "\n".join(
                     violations
                 )
+            )
+
+        if not write_operations:
+            violations.append(
+                "Generator returned no write_file "
+                "operations for the current task."
             )

@@ -140,6 +140,19 @@ CLIENT COMPONENT RULES:
 
 - The "use client" directive must appear before all imports.
 - Do not add "use client" when the component does not require client-side behavior.
+
+NEXT.JS APP ROUTER RULES:
+
+- If client hooks are used, the first statement must be exactly:
+  "use client";
+  or
+  'use client';
+
+- Never write:
+  use client
+
+- Never import from "next/router".
+- For App Router navigation, import from "next/navigation".
 """
 
 

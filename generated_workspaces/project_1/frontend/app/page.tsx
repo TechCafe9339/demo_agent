@@ -1,11 +1,5 @@
-export default function HomePage() {
-  return (
-    <main>
-      <h1>Generated Application</h1>
+import { redirect } from "next/navigation";
 
-      <p>
-        Your application is ready for AI generation.
-      </p>
-    </main>
-  );
+export default function HomePage() {
+  redirect("/login");
 }

@@ -284,7 +284,7 @@ class RepairAgentService:
 
                 stripped_content = content.lstrip()
 
-                has_use_client = (
+                valid_client_directive = (
                     stripped_content.startswith(
                         '"use client";'
                     )
@@ -295,12 +295,12 @@ class RepairAgentService:
 
                 if (
                     uses_client_hook
-                    and not has_use_client
+                    and not valid_client_directive
                 ):
                     violations.append(
-                        f"{path}: React client hooks are used "
-                        'but the file is missing "use client"; '
-                        "at the top."
+                        f"{path}: React client hooks are used, "
+                        'so the file must begin exactly with '
+                        '"use client"; or \'use client\';'
                     )
 
                 if path.startswith("frontend/pages/"):

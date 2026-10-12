@@ -43,6 +43,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
 
     "rest_framework",
+    "rest_framework.authtoken",
     "corsheaders",
 
     "accounts",
@@ -153,6 +154,7 @@ MAILERS = {
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
         "rest_framework.authentication.SessionAuthentication",
+        "rest_framework.authentication.TokenAuthentication",
     ],
 
     "DEFAULT_PERMISSION_CLASSES": [
@@ -183,3 +185,8 @@ QWEN_TIMEOUT = int(
         "300",
     )
 )
+
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+]
